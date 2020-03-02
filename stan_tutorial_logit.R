@@ -1,4 +1,3 @@
-setwd("~/Dropbox (Princeton)/Spring 2019/Courses/PSY504/")
 library(data.table)
 library(tidyverse)
 library(rstan)
