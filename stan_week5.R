@@ -3,6 +3,9 @@ library(tidyr)
 library(dplyr)
 library(rstan)
 
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+
 ## Set wd
 setwd("~/myrepos/psyteam504")
 
@@ -51,3 +54,5 @@ lotteries_multi_fit <- stan(model_code=multi_text, data = lotteries_data,
                       verbose=TRUE)
 
 summary(lotteries_multi_fit)
+
+theta1 <- extract(lotteries_multi_fit, 'theta[1]', permuted=FALSE)
