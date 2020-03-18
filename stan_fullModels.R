@@ -67,7 +67,7 @@ lotteries_subset_all %>%
   select(partid, theta.1, theta.2) -> df.lotteries
 
 bart_data <- read.csv("bart_pumps.csv", header = TRUE)
-bart_subset <- sample_n(df.bart, 1000, replace = TRUE)
+bart_subset <- sample_n(bart_data, 1000, replace = TRUE) #this used to say df.bart instead of bart_data, so I [Leon] changed it
 
 bart_subset %>%
   left_join(df.lotteries, by = "partid") %>%
