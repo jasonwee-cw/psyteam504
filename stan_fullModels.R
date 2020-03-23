@@ -55,7 +55,7 @@ model {
 
 # Fit Model
 lotteries_multi_fit <- stan(model_code=multi_text, data = lotteries_data,
-                            verbose=TRUE, chains = 1)
+                            verbose=TRUE, chains = 4)
 
 summary(lotteries_multi_fit)
 
