@@ -11,7 +11,6 @@ setwd("~/myrepos/psyteam504")
 ###################################
 
 ## Load file
-## Load file
 lotto <- read.csv("lotteriesOvert.csv")
 nrow(lotto) #1507
 '''
