@@ -11,15 +11,19 @@ setwd("~/myrepos/psyteam504")
 ###################################
 
 ## Load file
-lotteries <- read.csv("lotteries.csv")
-## Subset for fast
-lotteries_subset <- sample_n(lotteries, 1000, replace = TRUE)
-
+## Load file
+lotto <- read.csv("lotteriesOvert.csv")
+nrow(lotto) #1507
+'''
+R = Proportion of risky (= higher variance) choices
+H = Proportion of higher expected value choices (EV = probability of payoff (%) * payoff amount ($))
+CV = Proportion of higher coefficient of variance choices (CoV = the dispersion of data points in a data series around the mean)
+'''
 
 ## Set up parameters
-y <- lotteries_subset$R # DV
+y <- lotto$R # DV
 K <- 2 # No of groups
-N <- as.numeric(nrow(lotteries_subset))
+N <- as.numeric(nrow(lotto))
 
 ### Parse into list for Stan
 lotteries_data <- list(K=K, N=N, y=y)
