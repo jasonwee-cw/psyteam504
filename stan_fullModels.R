@@ -65,6 +65,20 @@ summary(lotteries_multi_fit)
 
 # Gathering data
 lotteries_theta <- as.data.frame(extract(lotteries_multi_fit, "theta"))
+nrow(lotteries_theta)
+
+hist(lotteries_theta$theta.1)
+hist(lotteries_theta$theta.2)
+
+lotto.sum <- summary(lotteries_multi_fit)
+lotto.sum$summary
+
+
+
+### This is older stuff below
+
+# Gathering data
+lotteries_theta <- as.data.frame(extract(lotteries_multi_fit, "theta"))
 lotteries_subset_all <- merge(lotteries_subset, lotteries_theta)
 lotteries_subset_all %>%
   select(partid, theta.1, theta.2) -> df.lotteries
