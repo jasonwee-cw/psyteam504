@@ -34,6 +34,7 @@ multi_text <-
   int<lower=1> K;          // number of mixture components
   int<lower=1> N;          // number of data points
   real y[N];               // observations
+  
 }
 parameters {
   simplex[K] theta;          // mixing proportions
@@ -50,46 +51,48 @@ model {
       lps[k] += normal_lpdf(y[n] | mu[k], sigma[k]);
     target += log_sum_exp(lps);
   }
+  
 }
 "
 
 # Fit Model
 lotteries_multi_fit <- stan(model_code=multi_text, data = lotteries_data,
-                            verbose=TRUE, chains = 4)
+                            verbose=TRUE, chains = 1)
 
 summary(lotteries_multi_fit)
+
+# Calculating posterior cluster probabilities per participant
+mu1 <- as.data.frame(summary.lottery)$mean[1]
+sd1 <- as.data.frame(summary.lottery)$sd[5]
+
+lotto %>%
+  group_by(partid) %>%
+  mutate(cluster1 = pnorm(R, mu1, sd1)) -> lotteries_theta
 
 ##############################
 ##### Linear regression ######
 ##############################
 
 # Gathering data
-lotteries_theta <- as.data.frame(extract(lotteries_multi_fit, "theta"))
-nrow(lotteries_theta)
-
-hist(lotteries_theta$theta.1)
-hist(lotteries_theta$theta.2)
-
-lotto.sum <- summary(lotteries_multi_fit)
-lotto.sum$summary
+# lotteries_theta <- as.data.frame(extract(lotteries_multi_fit, "theta"))
+# nrow(lotteries_theta)
+# 
+# hist(lotteries_theta$theta.1)
+# hist(lotteries_theta$theta.2)
+# 
+# lotto.sum <- summary(lotteries_multi_fit)
+# lotto.sum$summary
 
 
 
 ### This is older stuff below
 
 # Gathering data
-lotteries_theta <- as.data.frame(extract(lotteries_multi_fit, "theta"))
-lotteries_subset_all <- merge(lotteries_subset, lotteries_theta)
-lotteries_subset_all %>%
-  select(partid, theta.1, theta.2) -> df.lotteries
-
 bart_data <- read.csv("bart_pumps.csv", header = TRUE)
 bart_subset <- sample_n(bart_data, 1000, replace = TRUE) #this used to say df.bart instead of bart_data, so I [Leon] changed it
 
 bart_subset %>%
-  left_join(df.lotteries, by = "partid") %>%
-  select(-theta.2) %>%
-  rename(theta = theta.1) -> df.data
+  left_join(lotteries_theta, by = "partid") -> df.data
 
 ## Model
 linear.mixed.effects.stan.prg = "
@@ -105,10 +108,8 @@ parameters {
   real intercept;
   real explode_coef;
   real theta_coef;
-
   // we don't really care about the random effects and it saves a lot of memory to put them here
   real intercept_adj[S];
-
   real<lower=0> sigma; // residual for the overall regression
   real<lower=0> intercept_rsigma; // random effect variance for intercept
 }
@@ -119,11 +120,9 @@ model {
   // theta_coef ~ lognormal(0, 2);
   // sigma ~ cauchy(0, 2.5);
   // intercept_rsigma ~ cauchy(0, 2.5);
-
   for (s in 1:S) {
     intercept_adj[s] ~ normal(0, intercept_rsigma);
   }
-
   for (n in 1:N) {
     pumps[n] ~ normal((intercept + intercept_adj[partid[n]]) + 
                        explode_coef * explode[n] + 
