@@ -1,4 +1,4 @@
-### Load packages 
+## Load packages 
 library(tidyr)
 library(dplyr)
 library(rstan)
@@ -13,20 +13,18 @@ setwd("~/myrepos/psyteam504")
 ## Load file
 lotto <- read.csv("lotteriesOvert.csv")
 nrow(lotto) #1507
-'''
-R = Proportion of risky (= higher variance) choices
-H = Proportion of higher expected value choices (EV = probability of payoff (%) * payoff amount ($))
-CV = Proportion of higher coefficient of variance choices (CoV = the dispersion of data points in a data series around the mean)
-'''
+
+# R = Proportion of risky (= higher variance) choices
+# H = Proportion of higher expected value choices (EV = probability of payoff (%) * payoff amount ($))
+# CV = Proportion of higher coefficient of variance choices (CoV = the dispersion of data points in a data series around the mean)
 
 ## Set up parameters
 y <- lotto$R # DV
 K <- 2 # No of groups
 N <- as.numeric(nrow(lotto))
 
-### Parse into list for Stan
+## Parse into list for Stan
 lotteries_data <- list(K=K, N=N, y=y)
-
 
 ## Specify Model
 multi_text <-
@@ -55,15 +53,15 @@ model {
 }
 "
 
-# Fit Model
+## Fit Model
 lotteries_multi_fit <- stan(model_code=multi_text, data = lotteries_data,
                             verbose=TRUE, chains = 1)
 
 summary.lottery <- summary(lotteries_multi_fit, c("theta"))
 
-# Calculating posterior cluster probabilities per participant
-mu1 <- as.data.frame(summary.lottery$summary)$mean[1]
-sd1 <- as.data.frame(summary.lottery$summary)$sd[1]
+## Calculate posterior cluster probabilities per participant
+mu1 <- as.data.frame(summary.lottery$summary)$mean[3]
+sd1 <- as.data.frame(summary.lottery$summary)$mean[5]
 
 lotto %>%
   group_by(partid) %>%
@@ -83,13 +81,9 @@ lotto %>%
 # lotto.sum <- summary(lotteries_multi_fit)
 # lotto.sum$summary
 
-
-
-### This is older stuff below
-
-# Gathering data
+## Gathering data
 bart_data <- read.csv("bart_pumps.csv", header = TRUE)
-bart_subset <- sample_n(bart_data, 1000, replace = TRUE) #this used to say df.bart instead of bart_data, so I [Leon] changed it
+bart_subset <- sample_n(bart_data, 1000, replace = FALSE) 
 
 lotteries_theta %>%
   left_join(bart_subset, by = "partid") %>%
