@@ -41,13 +41,11 @@ multi_text <-
     int<lower=1> N;          // number of data points
     real y[N];               // observations
   }
-
   parameters {
     simplex[K] theta;          // mixing proportions
     ordered[K] mu;             // locations of mixture components
     vector<lower=0>[K] sigma;  // scales of mixture components
     }
-
   model {
     vector[K] log_theta = log(theta);  // cache log calculation
     sigma ~ lognormal(0, 2);
@@ -63,7 +61,7 @@ multi_text <-
 
 ## Fit Model
 lotteries_multi_fit <- stan(model_code=multi_text, data = lotteries_data,
-                            verbose=TRUE, chains = 1)
+                            verbose=TRUE, chains = 4)
 
 summary.lottery <- summary(lotteries_multi_fit)
 
@@ -76,9 +74,32 @@ lotto %>%
   group_by(partid) %>%
   mutate(cluster1 = pnorm(R, mu1, sd1)) -> lotteries_theta
 
-##############################
-##### Linear regression ######
-##############################
+lotto %>%
+  group_by(partid) %>%
+  mutate(cluster1 = pnorm(R, mu1, sd1),
+         cluster2 = 1-cluster1) %>%
+  pivot_longer(cols = cluster1:cluster2,
+               names_to = "Cluster",
+               values_to = "Cluster Probability") -> lotteries_theta_plot
+
+# Plots
+stan_hist(lotteries_multi_fit, pars = "mu")
+
+ggplot(lotteries_theta, aes(x = R, y = `Cluster Probability`, color = Cluster)) +
+  geom_line() +
+  xlab("R factor score") +
+  ylab("Probability") +
+  scale_color_discrete(breaks = c("cluster1", "cluster2"), 
+                       labels = c("Cluster 1", "Cluster 2")) +
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12))
+ggsave("clusters.png")
+
+############################################
+##### Linear mixed effects regression ######
+############################################
 
 # Gathering data
 # lotteries_theta <- as.data.frame(extract(lotteries_multi_fit, "theta"))
@@ -92,15 +113,66 @@ lotto %>%
 
 # Gathering data
 bart_data <- read.csv("bart_pumps.csv", header = TRUE)
-bart_subset <- top_n(bart_data, 1000) 
 
 lotteries_theta %>%
-  left_join(bart_subset, by = "partid") %>%
+  left_join(bart_data, by = "partid") %>%
   na.omit() %>%
   arrange(partid, trial, block) -> df.data
 
 ## Model
 linear.mixed.effects.stan.prg = "
+data {
+  int<lower=0> N;   // number of data items
+  int S; // unique participants
+  vector[N] pumps; // outcome
+  vector[N] theta;
+  int partid[N]; // the participant id for each row
+  
+  vector[N] log_lik;
+}
+parameters {
+  real intercept;
+  real theta_coef;
+  real<lower=0> sigma; // residual for the overall regression
+
+  real intercept_adj[S];
+  real<lower=0> intercept_rsigma; // random effect variance for intercept
+}
+model {
+  intercept ~ gamma(10, 1);
+  pumps ~ gamma(10, 1); 
+  theta_coef ~ normal(0, 20);
+  sigma ~ cauchy(0, 2.5);
+  intercept_rsigma ~ cauchy(0, 2.5);
+  for (s in 1:S) {
+    intercept_adj[s] ~ normal(0, intercept_rsigma);
+  }
+  for (n in 1:N) {
+    //pumps[n] ~ normal((intercept + intercept_adj[partid[n]]) + 
+                       theta_coef * theta[n], sigma);
+    log_lik[n] += normal_lpdf(pumps[n] | (intercept + intercept_adj[partid[n]]) + 
+                       theta_coef * theta[n], sigma);
+  }
+}
+"
+df.data$partid = as.integer(factor(df.data$partid)) # it's important to use "factor" here to re-level the makes since we took a subset of the data
+
+fit.lmm <- stan(model_code = linear.mixed.effects.stan.prg,
+                chains = 4,
+                data = list(N = nrow(df.data), S = length(unique(df.data$partid)),
+                            theta = df.data$cluster1, pumps = df.data$pumps,
+                            partid = df.data$partid), verbose=TRUE)
+
+summary(fit.lmm, pars=c('intercept', 'theta_coef', 'sigma', 'intercept_rsigma'))
+
+# Plots
+stan_plot(arr.fit, pars = c("theta_coef", "sigma"))
+
+######################################
+##### Autoregressive regression ######
+######################################
+
+arr.model = "
 data {
   int<lower=0> N;   // number of data items
   int S; // unique participants
@@ -113,9 +185,10 @@ parameters {
   real intercept;
   real explode_coef;
   real theta_coef;
-  // we don't really care about the random effects and it saves a lot of memory to put them here
-  real intercept_adj[S];
+  real pumps_coef;
   real<lower=0> sigma; // residual for the overall regression
+
+  real intercept_adj[S];
   real<lower=0> intercept_rsigma; // random effect variance for intercept
 }
 model {
@@ -128,20 +201,24 @@ model {
   for (s in 1:S) {
     intercept_adj[s] ~ normal(0, intercept_rsigma);
   }
-  for (n in 1:N) {
+  for (n in 2:N) {
     pumps[n] ~ normal((intercept + intercept_adj[partid[n]]) + 
-                       explode_coef * explode[n] + 
+                       explode_coef * explode[n-1] + 
                        theta_coef * theta[n], sigma);
   }
 }
 "
-df.data$partid = as.integer(factor(df.data$partid)) # it's important to use "factor" here to re-level the makes since we took a subset of the data
 
-test <- na.omit(df.data)
-fit.lmm <- stan(model_code = linear.mixed.effects.stan.prg,
-                chains = 1,
-                data = list(N = nrow(test), S = length(unique(test$partid)),
-                            theta = test$cluster1, pumps = test$pumps, explode = test$exploded,
-                            partid = test$partid), verbose=TRUE)
+arr.fit <- stan(model_code = arr.model,
+                chains = 4,
+                data = list(N = nrow(df.data), S = length(unique(df.data$partid)),
+                            theta = df.data$cluster1, pumps = df.data$pumps,
+                            partid = df.data$partid, explode = df.data$exploded), verbose=TRUE)
 
-summary(fit.lmm, pars=c('intercept', 'explode_coef', 'theta_coef', 'sigma', 'intercept_rsigma'))
+summary(arr.fit, pars=c('intercept', 'explode_coef', 'theta_coef', 'sigma', 'intercept_rsigma'))
+
+# Plots
+stan_plot(arr.fit, pars = c("theta_coef", "explode_coef", "intercept"), show_density = TRUE)
+ggplot(df.data, aes(x = ))
+
+
