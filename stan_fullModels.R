@@ -1,10 +1,4 @@
-### PSY504 Psych Team
-### Crystal Lee & Leon Mait
-### Created: 03/13/20
-### Modified: 03/24/20
-### Last edited by: Leon 
-
-## Load packages 
+### Load packages 
 library(tidyr)
 library(dplyr)
 library(rstan)
@@ -19,18 +13,20 @@ setwd("~/myrepos/psyteam504")
 ## Load file
 lotto <- read.csv("lotteriesOvert.csv")
 nrow(lotto) #1507
-
-# R = Proportion of risky (= higher variance) choices
-# H = Proportion of higher expected value choices (EV = probability of payoff (%) * payoff amount ($))
-# CV = Proportion of higher coefficient of variance choices (CoV = the dispersion of data points in a data series around the mean)
+'''
+R = Proportion of risky (= higher variance) choices
+H = Proportion of higher expected value choices (EV = probability of payoff (%) * payoff amount ($))
+CV = Proportion of higher coefficient of variance choices (CoV = the dispersion of data points in a data series around the mean)
+'''
 
 ## Set up parameters
 y <- lotto$R # DV
 K <- 2 # No of groups
 N <- as.numeric(nrow(lotto))
 
-## Parse into list for Stan
+### Parse into list for Stan
 lotteries_data <- list(K=K, N=N, y=y)
+
 
 ## Specify Model
 multi_text <-
@@ -48,26 +44,26 @@ parameters {
 model {
   vector[K] log_theta = log(theta);  // cache log calculation
   sigma ~ lognormal(0, 2);
-  mu ~ normal(0.5, 1);
+  mu ~ normal(0, 10);
   for (n in 1:N) {
     vector[K] lps = log_theta;
     for (k in 1:K)
       lps[k] += normal_lpdf(y[n] | mu[k], sigma[k]);
     target += log_sum_exp(lps);
   }
+  
 }
 "
 
-## Fit Model
+# Fit Model
 lotteries_multi_fit <- stan(model_code=multi_text, data = lotteries_data,
                             verbose=TRUE, chains = 1)
 
-summary.lottery <- summary(lotteries_multi_fit)
+summary.lottery <- summary(lotteries_multi_fit, c("theta"))
 
-## Calculate posterior cluster probabilities per participant
-theta1 <- as.data.frame(summary.lottery$summary)$mean[1]
-mu1 <- as.data.frame(summary.lottery$summary)$mean[3]
-sd1 <- as.data.frame(summary.lottery$summary)$mean[5]
+# Calculating posterior cluster probabilities per participant
+mu1 <- as.data.frame(summary.lottery$summary)$mean[1]
+sd1 <- as.data.frame(summary.lottery$summary)$sd[1]
 
 lotto %>%
   group_by(partid) %>%
@@ -87,9 +83,13 @@ lotto %>%
 # lotto.sum <- summary(lotteries_multi_fit)
 # lotto.sum$summary
 
-## Gathering data
+
+
+### This is older stuff below
+
+# Gathering data
 bart_data <- read.csv("bart_pumps.csv", header = TRUE)
-bart_subset <- sample_n(bart_data, 1000, replace = FALSE) 
+bart_subset <- top_n(bart_data, 1000) #this used to say df.bart instead of bart_data, so I [Leon] changed it
 
 lotteries_theta %>%
   left_join(bart_subset, by = "partid") %>%
@@ -116,12 +116,12 @@ parameters {
   real<lower=0> intercept_rsigma; // random effect variance for intercept
 }
 model {
-  // intercept ~ gamma(10, 1);
-  // pumps ~ normal(0, 20); 
-  // explode_coef ~ normal(0, 20);
-  // theta_coef ~ lognormal(0, 2);
-  // sigma ~ cauchy(0, 2.5);
-  // intercept_rsigma ~ cauchy(0, 2.5);
+  intercept ~ gamma(10, 1);
+  pumps ~ gamma(10, 1); 
+  explode_coef ~ normal(0, 20);
+  theta_coef ~ normal(0, 20);
+  sigma ~ cauchy(0, 2.5);
+  intercept_rsigma ~ cauchy(0, 2.5);
   for (s in 1:S) {
     intercept_adj[s] ~ normal(0, intercept_rsigma);
   }
@@ -138,7 +138,7 @@ test <- na.omit(df.data)
 fit.lmm <- stan(model_code = linear.mixed.effects.stan.prg,
                 chains = 1,
                 data = list(N = nrow(test), S = length(unique(test$partid)),
-                            theta = test$theta, pumps = test$pumps, explode = test$explode,
+                            theta = test$cluster1, pumps = test$pumps, explode = test$exploded,
                             partid = test$partid), verbose=TRUE)
 
 summary(fit.lmm, pars=c('intercept', 'explode_coef', 'theta_coef', 'sigma', 'intercept_rsigma'))
