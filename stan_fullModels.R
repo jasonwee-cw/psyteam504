@@ -48,14 +48,13 @@ parameters {
 model {
   vector[K] log_theta = log(theta);  // cache log calculation
   sigma ~ lognormal(0, 2);
-  mu ~ normal(0, 10);
+  mu ~ normal(0.5, 1);
   for (n in 1:N) {
     vector[K] lps = log_theta;
     for (k in 1:K)
       lps[k] += normal_lpdf(y[n] | mu[k], sigma[k]);
     target += log_sum_exp(lps);
   }
-  
 }
 "
 
@@ -66,6 +65,7 @@ lotteries_multi_fit <- stan(model_code=multi_text, data = lotteries_data,
 summary.lottery <- summary(lotteries_multi_fit)
 
 ## Calculate posterior cluster probabilities per participant
+theta1 <- as.data.frame(summary.lottery$summary)$mean[1]
 mu1 <- as.data.frame(summary.lottery$summary)$mean[3]
 sd1 <- as.data.frame(summary.lottery$summary)$mean[5]
 
