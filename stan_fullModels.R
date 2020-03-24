@@ -1,3 +1,9 @@
+### PSY504 Psych Team
+### Crystal Lee & Leon Mait
+### Created: 03/13/20
+### Modified: 03/24/20
+### Last edited by: Leon 
+
 ## Load packages 
 library(tidyr)
 library(dplyr)
@@ -57,7 +63,7 @@ model {
 lotteries_multi_fit <- stan(model_code=multi_text, data = lotteries_data,
                             verbose=TRUE, chains = 1)
 
-summary.lottery <- summary(lotteries_multi_fit, c("theta"))
+summary.lottery <- summary(lotteries_multi_fit)
 
 ## Calculate posterior cluster probabilities per participant
 mu1 <- as.data.frame(summary.lottery$summary)$mean[3]
