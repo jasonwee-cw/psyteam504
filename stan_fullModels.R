@@ -59,11 +59,11 @@ model {
 lotteries_multi_fit <- stan(model_code=multi_text, data = lotteries_data,
                             verbose=TRUE, chains = 1)
 
-summary.lottery <- summary(lotteries_multi_fit)
+summary.lottery <- summary(lotteries_multi_fit, c("theta"))
 
 # Calculating posterior cluster probabilities per participant
-mu1 <- as.data.frame(summary.lottery)$mean[1]
-sd1 <- as.data.frame(summary.lottery)$sd[5]
+mu1 <- as.data.frame(summary.lottery$summary)$mean[1]
+sd1 <- as.data.frame(summary.lottery$summary)$sd[1]
 
 lotto %>%
   group_by(partid) %>%
@@ -91,8 +91,10 @@ lotto %>%
 bart_data <- read.csv("bart_pumps.csv", header = TRUE)
 bart_subset <- sample_n(bart_data, 1000, replace = TRUE) #this used to say df.bart instead of bart_data, so I [Leon] changed it
 
-bart_subset %>%
-  left_join(lotteries_theta, by = "partid") -> df.data
+lotteries_theta %>%
+  left_join(bart_subset, by = "partid") %>%
+  na.omit() %>%
+  arrange(partid, trial, block) -> df.data
 
 ## Model
 linear.mixed.effects.stan.prg = "
