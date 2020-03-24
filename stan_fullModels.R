@@ -12,9 +12,7 @@ options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
 
 ## Set wd
-setwd("~/Documents/Princeton/PSY504 Statistics")
-
-#setwd("~/myrepos/psyteam504")
+setwd("~/myrepos/psyteam504")
 
 ###################################
 ##### Mixture model ###############
