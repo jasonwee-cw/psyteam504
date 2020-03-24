@@ -51,7 +51,7 @@ multi_text <-
   model {
     vector[K] log_theta = log(theta);  // cache log calculation
     sigma ~ lognormal(0, 2);
-    mu ~ normal(0, 1);
+    mu ~ normal(0, 10);
     for (n in 1:N) {
     vector[K] lps = log_theta;
     for (k in 1:K)
