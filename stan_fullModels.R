@@ -59,7 +59,7 @@ model {
 lotteries_multi_fit <- stan(model_code=multi_text, data = lotteries_data,
                             verbose=TRUE, chains = 1)
 
-summary(lotteries_multi_fit)
+summary.lottery <- summary(lotteries_multi_fit)
 
 # Calculating posterior cluster probabilities per participant
 mu1 <- as.data.frame(summary.lottery)$mean[1]
