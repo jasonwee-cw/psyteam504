@@ -51,17 +51,17 @@ multi_text <-
     sigma ~ lognormal(0, 2);
     mu ~ normal(0, 10);
     for (n in 1:N) {
-    vector[K] lps = log_theta;
-    for (k in 1:K)
-    lps[k] += normal_lpdf(y[n] | mu[k], sigma[k]);
-    target += log_sum_exp(lps);
-    }
+      vector[K] lps = log_theta;
+      for (k in 1:K)
+        lps[k] += normal_lpdf(y[n] | mu[k], sigma[k]);
+        target += log_sum_exp(lps);
+      }
   }
 "
 
 ## Fit Model
 lotteries_multi_fit <- stan(model_code=multi_text, data = lotteries_data,
-                            verbose=TRUE, chains = 4)
+                            verbose=TRUE, chains = 1)
 
 summary.lottery <- summary(lotteries_multi_fit)
 save(summary.lottery, file = "summary.lottery.RData")
@@ -86,6 +86,12 @@ lotto %>%
 
 # Plots
 stan_hist(lotteries_multi_fit, pars = "mu")
+traceplot(lotteries_multi_fit, pars = c("theta"))
+ggsave("lotteries_traceplot_theta.png")
+traceplot(lotteries_multi_fit, pars = c("mu"))
+ggsave("lotteries_traceplot_mu.png")
+traceplot(lotteries_multi_fit, pars = c("sigma"))
+ggsave("lotteries_traceplot_sigma.png")
 
 ggplot(lotteries_theta_plot, aes(x = R, y = `Cluster Probability`, color = Cluster)) +
   geom_line() +
@@ -156,15 +162,21 @@ model {
 df.data$partid = as.integer(factor(df.data$partid)) # it's important to use "factor" here to re-level the makes since we took a subset of the data
 
 fit.lmm <- stan(model_code = linear.mixed.effects.stan.prg,
-                chains = 4,
+                chains = 3,
                 data = list(N = nrow(df.data), S = length(unique(df.data$partid)),
                             theta = df.data$cluster1, pumps = df.data$pumps,
                             partid = df.data$partid), verbose=TRUE)
+save(fit.lmm, file = "fitlmm.RData")
 
- summary(fit.lmm, pars=c('intercept', 'theta_coef', 'sigma', 'intercept_rsigma'))
+
+summary(fit.lmm, pars=c('intercept', 'theta_coef', 'sigma', 'intercept_rsigma'))
 
 # Plots
-stan_plot(arr.fit, pars = c("theta_coef", "sigma"))
+stan_plot(fit.lmm, pars = c("intercept", 'intercept_rsigma', "sigma", "theta_coef"), show_density = TRUE, fill_color = "blue")
+ggsave("fitlmm.png")
+
+traceplot(fit.lmm, pars = c("theta_coef"))
+ggsave("lmm_traceplot_theta.png")
 
 ######################################
 ##### Autoregressive regression ######
@@ -208,15 +220,20 @@ model {
 "
 
 arr.fit <- stan(model_code = arr.model,
-                chains = 4,
+                chains = 3,
                 data = list(N = nrow(df.data), S = length(unique(df.data$partid)),
                             theta = df.data$cluster1, pumps = df.data$pumps,
                             partid = df.data$partid, explode = df.data$exploded), verbose=TRUE)
 
+save(arr.fit, file = "arrfit.RData")
+
 summary(arr.fit, pars=c('intercept', 'explode_coef', 'theta_coef', 'sigma', 'intercept_rsigma'))
 
 # Plots
-stan_plot(arr.fit, pars = c("theta_coef", "explode_coef", "intercept"), show_density = TRUE)
-ggplot(df.data, aes(x = ))
+stan_plot(arr.fit, pars = c("intercept", "sigma", "theta_coef", "explode_coef"), show_density = TRUE, fill_color = "blue")
+ggsave("arrfit.png")
 
-
+traceplot(arr.fit, pars = c("theta_coef"))
+ggsave("arr_traceplot_theta.png")
+traceplot(arr.fit, pars = c("explode_coef"))
+ggsave("arr_traceplot_explode.png")
