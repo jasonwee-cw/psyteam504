@@ -8,8 +8,8 @@
 library(tidyr)
 library(dplyr)
 library(rstan)
-options(mc.cores = parallel::detectCores())
-rstan_options(auto_write = TRUE)
+#options(mc.cores = parallel::detectCores())
+#rstan_options(auto_write = TRUE)
 
 ## Set wd
 setwd("~/myrepos/psyteam504")
@@ -64,6 +64,8 @@ lotteries_multi_fit <- stan(model_code=multi_text, data = lotteries_data,
                             verbose=TRUE, chains = 4)
 
 summary.lottery <- summary(lotteries_multi_fit)
+save(summary.lottery, file = "summary.lottery.RData")
+
 
 ## Calculate posterior cluster probabilities per participant
 theta1 <- as.data.frame(summary.lottery$summary)$mean[1]
@@ -85,7 +87,7 @@ lotto %>%
 # Plots
 stan_hist(lotteries_multi_fit, pars = "mu")
 
-ggplot(lotteries_theta, aes(x = R, y = `Cluster Probability`, color = Cluster)) +
+ggplot(lotteries_theta_plot, aes(x = R, y = `Cluster Probability`, color = Cluster)) +
   geom_line() +
   xlab("R factor score") +
   ylab("Probability") +
@@ -127,9 +129,7 @@ data {
   vector[N] pumps; // outcome
   vector[N] theta;
   int partid[N]; // the participant id for each row
-  
-  vector[N] log_lik;
-}
+  }
 parameters {
   real intercept;
   real theta_coef;
@@ -148,9 +148,7 @@ model {
     intercept_adj[s] ~ normal(0, intercept_rsigma);
   }
   for (n in 1:N) {
-    //pumps[n] ~ normal((intercept + intercept_adj[partid[n]]) + 
-                       theta_coef * theta[n], sigma);
-    log_lik[n] += normal_lpdf(pumps[n] | (intercept + intercept_adj[partid[n]]) + 
+    pumps[n] ~ normal((intercept + intercept_adj[partid[n]]) + 
                        theta_coef * theta[n], sigma);
   }
 }
@@ -163,7 +161,7 @@ fit.lmm <- stan(model_code = linear.mixed.effects.stan.prg,
                             theta = df.data$cluster1, pumps = df.data$pumps,
                             partid = df.data$partid), verbose=TRUE)
 
-summary(fit.lmm, pars=c('intercept', 'theta_coef', 'sigma', 'intercept_rsigma'))
+ summary(fit.lmm, pars=c('intercept', 'theta_coef', 'sigma', 'intercept_rsigma'))
 
 # Plots
 stan_plot(arr.fit, pars = c("theta_coef", "sigma"))
